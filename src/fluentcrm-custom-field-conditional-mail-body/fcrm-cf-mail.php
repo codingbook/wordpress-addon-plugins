@@ -3,7 +3,8 @@
  * Plugin Name: FluentCRM Custom Field Conditional Content
  * Description: Extends FluentCRM to support conditional content based on custom field values in email templates
  * Version: 1.0.0
- * Author: Custom Development
+ * Author: Ibrahim Sharif
+ * Author URI: https://ibrahimsharif.com
  * Requires at least: 5.0
  * Tested up to: 6.4
  */
