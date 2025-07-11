@@ -168,6 +168,44 @@
     max-height: 400px;
 }
 
+/* Chart Controls Styles */
+.chart-controls {
+    background: #f9f9f9;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.agent-selector label {
+    font-weight: bold;
+    margin-bottom: 10px;
+    display: block;
+}
+
+.agent-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: center;
+}
+
+.agent-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.agent-checkbox input[type="checkbox"] {
+    margin: 0;
+}
+
+.agent-checkbox:hover {
+    color: #0073aa;
+}
+
 #agent_responses_details_container {
     background: #fff;
     padding: 20px;
@@ -205,12 +243,20 @@
     background: #f8f9fa;
     padding: 15px;
     border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
 }
 
-.agent-card-header h4 {
+.agent-header-left h4 {
     margin: 0 0 10px 0;
     color: #0073aa;
     font-size: 18px;
+}
+
+.agent-header-right {
+    text-align: right;
+    min-width: 200px;
 }
 
 .agent-stats {
@@ -294,81 +340,7 @@
     display: inline-block;
 }
 
-/* Hour Details Styles */
-.hour-details-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 15px;
-    margin-top: 20px;
-}
 
-.hour-agent-card {
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    overflow: hidden;
-}
-
-.hour-agent-header {
-    background: #f0f6fc;
-    padding: 12px;
-    border-bottom: 1px solid #ddd;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.hour-agent-header h4 {
-    margin: 0;
-    color: #0073aa;
-    font-size: 16px;
-}
-
-.response-count {
-    background: #0073aa;
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: bold;
-}
-
-.hour-agent-responses {
-    padding: 12px;
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.hour-response-item {
-    background: #f9f9f9;
-    padding: 10px;
-    margin-bottom: 8px;
-    border-radius: 4px;
-    border-left: 3px solid #0073aa;
-}
-
-.hour-response-time {
-    font-size: 11px;
-    color: #666;
-    margin-bottom: 5px;
-    font-weight: bold;
-}
-
-.hour-response-content {
-    font-size: 12px;
-    color: #333;
-    line-height: 1.4;
-    margin-bottom: 5px;
-}
-
-.hour-response-ticket {
-    font-size: 10px;
-    color: #0073aa;
-    background: #e7f3ff;
-    padding: 2px 6px;
-    border-radius: 3px;
-    display: inline-block;
-}
 
 /* Table Styles */
 .wp-list-table {

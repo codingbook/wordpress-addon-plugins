@@ -239,39 +239,44 @@ jQuery(document).ready(function ($) {
     function displayAgentTable(agents) {
         const container = $('#agent_responses_table_container');
 
+        // Filter out agents with 0 responses
+        const activeAgents = agents.filter(agent => agent.total_responses > 0);
+
         let cardsHtml = `
             <h3>Agent Response Statistics</h3>
             <div class="agent-cards-grid">
         `;
 
-        agents.forEach(function (agent) {
+        activeAgents.forEach(function (agent) {
             const firstResponse = agent.first_response ? new Date(agent.first_response).toLocaleString() : 'N/A';
             const lastResponse = agent.last_response ? new Date(agent.last_response).toLocaleString() : 'N/A';
 
             cardsHtml += `
                 <div class="agent-card">
                     <div class="agent-card-header">
-                        <h4>${agent.full_name}</h4>
-                        <div class="agent-stats">
-                            <span class="stat-item">
-                                <strong>${agent.total_responses}</strong> responses
-                            </span>
-                            <span class="stat-item">
-                                <strong>${agent.total_tickets}</strong> tickets
-                            </span>
+                        <div class="agent-header-left">
+                            <h4>${agent.full_name}</h4>
+                            <div class="agent-stats">
+                                <span class="stat-item">
+                                    <strong>${agent.total_responses}</strong> responses
+                                </span>
+                                <span class="stat-item">
+                                    <strong>${agent.total_tickets}</strong> tickets
+                                </span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="agent-card-body">
-                        <div class="response-timeline">
+                        <div class="agent-header-right">
                             <div class="timeline-item">
-                                <span class="timeline-label">First Response:</span>
+                                <span class="timeline-label">First:</span>
                                 <span class="timeline-value">${firstResponse}</span>
                             </div>
                             <div class="timeline-item">
-                                <span class="timeline-label">Last Response:</span>
+                                <span class="timeline-label">Last:</span>
                                 <span class="timeline-value">${lastResponse}</span>
                             </div>
                         </div>
+                    </div>
+                    <div class="agent-card-body">
                         <div class="recent-responses">
                             <h5>Recent Responses</h5>
                             <div class="response-list">
@@ -280,12 +285,15 @@ jQuery(document).ready(function ($) {
             // Show recent responses (last 5)
             const recentResponses = agent.response_details ? agent.response_details.slice(-5).reverse() : [];
             recentResponses.forEach(function (response) {
-                const content = stripHtml(response.content).substring(0, 100) + (response.content.length > 100 ? '...' : '');
+                const content = stripHtml(response.content).substring(0, 300) + (response.content.length > 300 ? '...' : '');
+                const ticketUrl = `https://support.wpmanageninja.com/#/tickets/${response.ticket_id}/view`;
                 cardsHtml += `
                     <div class="response-item">
                         <div class="response-time">${response.formatted_time}</div>
                         <div class="response-content">${content}</div>
-                        <div class="response-ticket">Ticket #${response.ticket_id}</div>
+                        <div class="response-ticket">
+                            <a href="${ticketUrl}" target="_blank">Ticket #${response.ticket_id}</a>
+                        </div>
                     </div>
                 `;
             });
@@ -309,15 +317,36 @@ jQuery(document).ready(function ($) {
     function displayAgentChart(agents, timeSeries) {
         const container = $('#agent_responses_chart_container');
 
-        // Create canvas for chart
-        container.html('<h3>Response Time Series (Hourly)</h3><canvas id="agent_responses_chart"></canvas>');
+        // Filter out agents with 0 responses
+        const activeAgents = agents.filter(agent => agent.total_responses > 0);
+
+        // Create chart container with agent selection
+        container.html(`
+            <h3>Response Time Series (24-Hour View)</h3>
+            <div class="chart-controls">
+                <div class="agent-selector">
+                    <label>Show/Hide Agents:</label>
+                    <div class="agent-checkboxes">
+                        <label class="agent-checkbox">
+                            <input type="checkbox" id="select-all-agents" checked> Select All
+                        </label>
+                        ${activeAgents.map(agent => `
+                            <label class="agent-checkbox">
+                                <input type="checkbox" class="agent-toggle" data-agent-id="${agent.id}" checked> ${agent.full_name}
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+            <canvas id="agent_responses_chart"></canvas>
+        `);
 
         // Prepare chart data
         const hours = Object.keys(timeSeries).sort();
         const datasets = [];
 
-        // Create a dataset for each agent
-        agents.forEach(function (agent, index) {
+        // Create a dataset for each active agent
+        activeAgents.forEach(function (agent, index) {
             const data = hours.map(hour => timeSeries[hour][agent.id] || 0);
 
             // Generate a color for each agent
@@ -337,7 +366,8 @@ jQuery(document).ready(function ($) {
                 fill: false,
                 tension: 0.1,
                 pointRadius: 4,
-                pointHoverRadius: 6
+                pointHoverRadius: 6,
+                agentId: agent.id
             });
         });
 
@@ -365,20 +395,10 @@ jQuery(document).ready(function ($) {
                 plugins: {
                     title: {
                         display: true,
-                        text: 'Agent Responses Over Time (Hourly) - Click on points to see details'
+                        text: 'Agent Responses Over Time (24-Hour View) - Click on points to see details'
                     },
                     tooltip: {
-                        callbacks: {
-                            title: function (context) {
-                                const hour = hours[context[0].dataIndex];
-                                const date = new Date(hour);
-                                return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                            },
-                            afterBody: function (context) {
-                                const responses = context.map(item => `${item.dataset.label}: ${item.parsed.y} responses`);
-                                return responses.join('\n');
-                            }
-                        }
+                        enabled: false // Disable tooltips
                     },
                     legend: {
                         position: 'top',
@@ -413,7 +433,7 @@ jQuery(document).ready(function ($) {
                     if (elements.length > 0) {
                         const element = elements[0];
                         const hour = hours[element.index];
-                        showDateDetails(hour, timeSeries, agents);
+                        showDateDetails(hour, timeSeries, activeAgents);
 
                         // Scroll to details section
                         $('#agent_responses_details_container')[0].scrollIntoView({
@@ -423,6 +443,39 @@ jQuery(document).ready(function ($) {
                 }
             }
         });
+
+        // Add event listeners for agent selection
+        $('#select-all-agents').on('change', function () {
+            const isChecked = $(this).is(':checked');
+            $('.agent-toggle').prop('checked', isChecked);
+            updateChartVisibility(chart, isChecked);
+        });
+
+        $('.agent-toggle').on('change', function () {
+            const agentId = $(this).data('agent-id');
+            const isVisible = $(this).is(':checked');
+
+            // Update chart dataset visibility
+            const datasetIndex = chart.data.datasets.findIndex(dataset => dataset.agentId == agentId);
+            if (datasetIndex !== -1) {
+                chart.setDatasetVisibility(datasetIndex, isVisible);
+                chart.update();
+            }
+
+            // Update select all checkbox
+            const allChecked = $('.agent-toggle:checked').length === $('.agent-toggle').length;
+            const someChecked = $('.agent-toggle:checked').length > 0;
+            $('#select-all-agents').prop('indeterminate', someChecked && !allChecked);
+            $('#select-all-agents').prop('checked', allChecked);
+        });
+    }
+
+    // Update chart visibility based on select all
+    function updateChartVisibility(chart, isVisible) {
+        chart.data.datasets.forEach((dataset, index) => {
+            chart.setDatasetVisibility(index, isVisible);
+        });
+        chart.update();
     }
 
     // Show hour details when chart point is clicked
@@ -436,46 +489,76 @@ jQuery(document).ready(function ($) {
 
         let detailsHtml = `
             <h3>Responses for ${formattedHour}</h3>
-            <div class="hour-details-grid">
+            <div class="agent-cards-grid">
         `;
 
         agents.forEach(function (agent) {
             const responses = hourData[agent.id] || 0;
             if (responses > 0) {
-                detailsHtml += `
-                    <div class="hour-agent-card">
-                        <div class="hour-agent-header">
-                            <h4>${agent.full_name}</h4>
-                            <span class="response-count">${responses} response${responses > 1 ? 's' : ''}</span>
-                        </div>
-                        <div class="hour-agent-responses">
-                `;
+                // Get responses for this specific hour
+                const hourResponses = agent.response_details ? agent.response_details.filter(response => {
+                    const responseHour = new Date(response.created_at);
+                    return responseHour.toISOString().substring(0, 13) + ':00:00.000Z' === hour;
+                }) : [];
 
-                // Show actual responses for this hour
-                if (agent.response_details) {
-                    const hourResponses = agent.response_details.filter(response => {
-                        const responseHour = new Date(response.created_at);
-                        return responseHour.toISOString().substring(0, 13) + ':00:00.000Z' === hour;
-                    });
+                if (hourResponses.length > 0) {
+                    const firstResponse = hourResponses[0].formatted_time;
+                    const lastResponse = hourResponses[hourResponses.length - 1].formatted_time;
+
+                    detailsHtml += `
+                        <div class="agent-card">
+                            <div class="agent-card-header">
+                                <div class="agent-header-left">
+                                    <h4>${agent.full_name}</h4>
+                                    <div class="agent-stats">
+                                        <span class="stat-item">
+                                            <strong>${responses}</strong> responses
+                                        </span>
+                                        <span class="stat-item">
+                                            <strong>${new Set(hourResponses.map(r => r.ticket_id)).size}</strong> tickets
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="agent-header-right">
+                                    <div class="timeline-item">
+                                        <span class="timeline-label">First:</span>
+                                        <span class="timeline-value">${firstResponse}</span>
+                                    </div>
+                                    <div class="timeline-item">
+                                        <span class="timeline-label">Last:</span>
+                                        <span class="timeline-value">${lastResponse}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="agent-card-body">
+                                <div class="recent-responses">
+                                    <h5>Responses for this hour</h5>
+                                    <div class="response-list">
+                    `;
 
                     hourResponses.forEach(function (response) {
-                        const content = stripHtml(response.content).substring(0, 150) + (response.content.length > 150 ? '...' : '');
+                        const content = stripHtml(response.content).substring(0, 300) + (response.content.length > 300 ? '...' : '');
+                        const ticketUrl = `https://support.wpmanageninja.com/#/tickets/${response.ticket_id}/view`;
                         const responseTime = new Date(response.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
                         detailsHtml += `
-                            <div class="hour-response-item">
-                                <div class="hour-response-time">${responseTime}</div>
-                                <div class="hour-response-content">${content}</div>
-                                <div class="hour-response-ticket">Ticket #${response.ticket_id}</div>
+                            <div class="response-item">
+                                <div class="response-time">${responseTime}</div>
+                                <div class="response-content">${content}</div>
+                                <div class="response-ticket">
+                                    <a href="${ticketUrl}" target="_blank">Ticket #${response.ticket_id}</a>
+                                </div>
                             </div>
                         `;
                     });
-                }
 
-                detailsHtml += `
+                    detailsHtml += `
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                }
             }
         });
 
