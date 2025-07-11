@@ -175,9 +175,18 @@
     border-top: 2px solid #0073aa !important;
 }
 
-/* Hide main agent cards section */
-#agent_responses_table_container {
-    display: none !important;
+/* Agent cards header styling */
+.agent-cards-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #ddd;
+}
+
+.agent-cards-header h3 {
+    margin: 0;
 }
 
 /* Details header styling */

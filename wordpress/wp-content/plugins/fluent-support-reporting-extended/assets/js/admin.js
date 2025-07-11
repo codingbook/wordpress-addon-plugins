@@ -274,8 +274,14 @@ jQuery(document).ready(function ($) {
     function displayAgentResponses(data) {
         const { agents, time_series } = data;
 
+        console.log('Display agent responses - raw data:', data);
+        console.log('Agents:', agents);
+        console.log('Time series:', time_series);
+
         // Filter out agents with no responses
         const activeAgents = agents.filter(agent => agent.total_responses > 0);
+
+        console.log('Active agents:', activeAgents);
 
         if (activeAgents.length === 0) {
             $('#agent_responses_summary_container').html('<p>No agent responses found for the selected criteria.</p>');
@@ -285,7 +291,7 @@ jQuery(document).ready(function ($) {
         // Display summary table
         displayAgentSummary(activeAgents);
 
-        // Display agent table
+        // Display agent table with toggle button
         displayAgentTable(activeAgents);
 
         // Display chart
@@ -367,8 +373,11 @@ jQuery(document).ready(function ($) {
         const container = $('#agent_responses_table_container');
 
         let cardsHtml = `
-            <h3>Agent Response Statistics</h3>
-            <div class="agent-cards-grid">
+            <div class="agent-cards-header">
+                <h3>Agent Response Statistics</h3>
+                <button class="button-secondary" id="toggle-agent-cards">Show All Agent Cards</button>
+            </div>
+            <div class="agent-cards-grid" style="display: none;">
         `;
 
         agents.forEach(function (agent) {
@@ -435,30 +444,29 @@ jQuery(document).ready(function ($) {
         `;
 
         container.html(cardsHtml);
+
+        // Add event listener for toggle button
+        $('#toggle-agent-cards').on('click', function () {
+            const button = $(this);
+            const cardsGrid = $('.agent-cards-grid');
+
+            if (cardsGrid.is(':visible')) {
+                cardsGrid.hide();
+                button.text('Show All Agent Cards');
+            } else {
+                cardsGrid.show();
+                button.text('Hide All Agent Cards');
+            }
+        });
     }
 
     // Display agent chart
     function displayAgentChart(agents, timeSeries) {
         const container = $('#agent_responses_chart_container');
 
-        // Create chart container with agent selection
+        // Create chart container without separate controls
         container.html(`
-            <h3>Response Time Series (24-Hour View)</h3>
-            <div class="chart-controls">
-                <div class="agent-selector">
-                    <label>Show/Hide Agents:</label>
-                    <div class="agent-checkboxes">
-                        <label class="agent-checkbox">
-                            <input type="checkbox" id="select-all-agents" checked> Select All
-                        </label>
-                        ${agents.map(agent => `
-                            <label class="agent-checkbox">
-                                <input type="checkbox" class="agent-toggle" data-agent-id="${agent.id}" checked> ${agent.full_name}
-                            </label>
-                        `).join('')}
-                    </div>
-                </div>
-            </div>
+            <h3>Response Time Series (24-Hour View) - Click on legends to show/hide agents</h3>
             <canvas id="agent_responses_chart"></canvas>
         `);
 
@@ -470,6 +478,9 @@ jQuery(document).ready(function ($) {
         agents.forEach(function (agent, index) {
             const data = hours.map(hour => timeSeries[hour][agent.id] || 0);
 
+            // Calculate total responses for this agent
+            const totalResponses = data.reduce((sum, count) => sum + count, 0);
+
             // Generate a color for each agent
             const colors = [
                 '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
@@ -479,7 +490,7 @@ jQuery(document).ready(function ($) {
             ];
 
             datasets.push({
-                label: agent.full_name,
+                label: `${agent.full_name} (${totalResponses})`,
                 data: data,
                 borderColor: colors[index % colors.length],
                 backgroundColor: colors[index % colors.length] + '20',
@@ -488,7 +499,9 @@ jQuery(document).ready(function ($) {
                 tension: 0.1,
                 pointRadius: 4,
                 pointHoverRadius: 6,
-                agentId: agent.id
+                agentId: agent.id,
+                agentName: agent.full_name,
+                totalResponses: totalResponses
             });
         });
 
@@ -554,6 +567,12 @@ jQuery(document).ready(function ($) {
                     if (elements.length > 0) {
                         const element = elements[0];
                         const hour = hours[element.index];
+
+                        console.log('Chart clicked - element:', element);
+                        console.log('Hour index:', element.index);
+                        console.log('Hour value:', hour);
+                        console.log('Time series keys:', Object.keys(timeSeries));
+
                         showDateDetails(hour, timeSeries, agents);
 
                         // Scroll to details section
@@ -565,30 +584,8 @@ jQuery(document).ready(function ($) {
             }
         });
 
-        // Add event listeners for agent selection
-        $('#select-all-agents').on('change', function () {
-            const isChecked = $(this).is(':checked');
-            $('.agent-toggle').prop('checked', isChecked);
-            updateChartVisibility(chart, isChecked);
-        });
-
-        $('.agent-toggle').on('change', function () {
-            const agentId = $(this).data('agent-id');
-            const isVisible = $(this).is(':checked');
-
-            // Update chart dataset visibility
-            const datasetIndex = chart.data.datasets.findIndex(dataset => dataset.agentId == agentId);
-            if (datasetIndex !== -1) {
-                chart.setDatasetVisibility(datasetIndex, isVisible);
-                chart.update();
-            }
-
-            // Update select all checkbox
-            const allChecked = $('.agent-toggle:checked').length === $('.agent-toggle').length;
-            const someChecked = $('.agent-toggle:checked').length > 0;
-            $('#select-all-agents').prop('indeterminate', someChecked && !allChecked);
-            $('#select-all-agents').prop('checked', allChecked);
-        });
+        // Chart legend click handling is built into Chart.js
+        // Users can click on legend items to show/hide datasets
     }
 
     // Update chart visibility based on select all
@@ -607,7 +604,16 @@ jQuery(document).ready(function ($) {
         // Debug logging
         console.log('Hour clicked:', hour);
         console.log('Hour data:', hourData);
-        console.log('Agents:', agents);
+        console.log('All agents:', agents);
+
+        // Get currently visible agents from the chart
+        const chart = Chart.getChart('agent_responses_chart');
+        const visibleAgents = agents.filter(agent => {
+            const datasetIndex = chart.data.datasets.findIndex(dataset => dataset.agentId == agent.id);
+            return datasetIndex !== -1 && chart.isDatasetVisible(datasetIndex);
+        });
+
+        console.log('Visible agents:', visibleAgents);
 
         // Format the hour for display
         const date = new Date(hour);
@@ -623,10 +629,13 @@ jQuery(document).ready(function ($) {
 
         let hasResponses = false;
 
-        agents.forEach(function (agent) {
+        visibleAgents.forEach(function (agent) {
             const responses = hourData[agent.id] || 0;
             if (responses > 0) {
                 // Get responses for this specific hour
+                console.log(`Filtering responses for agent ${agent.full_name} (ID: ${agent.id})`);
+                console.log(`Agent has ${agent.response_details ? agent.response_details.length : 0} total responses`);
+
                 const hourResponses = agent.response_details ? agent.response_details.filter(response => {
                     const responseHour = new Date(response.created_at);
                     const responseHourString = responseHour.getFullYear() + '-' +
@@ -643,6 +652,8 @@ jQuery(document).ready(function ($) {
 
                     return responseHourString === hour;
                 }) : [];
+
+                console.log(`Found ${hourResponses.length} responses for hour ${hour} for agent ${agent.full_name}`);
 
                 if (hourResponses.length > 0) {
                     hasResponses = true;
