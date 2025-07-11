@@ -503,8 +503,11 @@ jQuery(document).ready(function ($) {
                 borderWidth: 2,
                 fill: false,
                 tension: 0.1,
-                pointRadius: 4,
-                pointHoverRadius: 6,
+                pointRadius: 6,
+                pointHoverRadius: 8,
+                pointBackgroundColor: colors[index % colors.length],
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
                 agentId: agent.id,
                 agentName: agent.full_name,
                 totalResponses: totalResponses
@@ -529,8 +532,9 @@ jQuery(document).ready(function ($) {
                 responsive: true,
                 maintainAspectRatio: false,
                 interaction: {
-                    mode: 'index',
-                    intersect: false,
+                    mode: 'nearest',
+                    intersect: true,
+                    axis: 'xy'
                 },
                 plugins: {
                     title: {
@@ -579,21 +583,36 @@ jQuery(document).ready(function ($) {
                         console.log('Hour index:', element.index);
                         console.log('Hour value:', hour);
                         console.log('Dataset index:', datasetIndex);
+                        console.log('Dataset data at this point:', datasets[datasetIndex].data[element.index]);
+                        console.log('All datasets at this hour:');
+                        datasets.forEach((dataset, idx) => {
+                            const agent = agents.find(a => a.id == dataset.agentId);
+                            console.log(`  Dataset ${idx} (${agent ? agent.full_name : 'Unknown'}): ${dataset.data[element.index]} responses`);
+                        });
                         console.log('Time series keys:', Object.keys(timeSeries));
 
                         // Get the specific agent for this dataset
                         const clickedAgent = agents.find(agent => agent.id == datasets[datasetIndex].agentId);
                         console.log('Clicked agent:', clickedAgent ? clickedAgent.full_name : 'Unknown');
 
-                        // Only show the specific agent that was clicked, not all agents with data at this point
-                        const agentsToShow = clickedAgent ? [clickedAgent] : [];
+                        // Verify this agent actually has data at this point
+                        const agentDataAtPoint = datasets[datasetIndex].data[element.index];
+                        if (agentDataAtPoint > 0) {
+                            // Only show the specific agent that was clicked, not all agents with data at this point
+                            const agentsToShow = clickedAgent ? [clickedAgent] : [];
+                            console.log('Showing data for clicked agent only:', agentsToShow.map(a => a.full_name));
 
-                        showDateDetails(hour, timeSeries, agents, agentsToShow);
+                            showDateDetails(hour, timeSeries, agents, agentsToShow);
 
-                        // Scroll to details section
-                        $('#agent_responses_details_container')[0].scrollIntoView({
-                            behavior: 'smooth'
-                        });
+                            // Scroll to details section
+                            $('#agent_responses_details_container')[0].scrollIntoView({
+                                behavior: 'smooth'
+                            });
+                        } else {
+                            console.log('Clicked agent has no data at this point, ignoring click');
+                        }
+                    } else {
+                        console.log('No element detected in click event');
                     }
                 }
             }
