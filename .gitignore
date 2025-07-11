@@ -1,6 +1,29 @@
 composer.phar
 /vendor/
 
-# Commit your application's lock file https://getcomposer.org/doc/01-basic-usage.md#commit-your-composer-lock-file-to-version-control
-# You may choose to ignore a library lock file http://getcomposer.org/doc/02-libraries.md#lock-file
-# composer.lock
+#Temporary files
+tmp/
+
+# WordPress Core
+wp-admin/
+wp-includes/
+wordpress/wp-content/themes/
+wordpress/license.txt
+wordpress/readme.html
+wordpress/index.php
+wordpress/wp-content/index.php
+wordpress/wp-content/plugins/index.php
+wp-activate.php
+wp-blog-header.php
+wp-comments-post.php
+wp-cron.php
+wp-links-opml.php
+wp-load.php
+wp-login.php
+wp-mail.php
+wp-settings.php
+wp-signup.php
+wp-trackback.php
+xmlrpc.php
+wp-config.php
+wp-config-sample.php
