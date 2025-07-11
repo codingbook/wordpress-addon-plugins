@@ -31,6 +31,11 @@ jQuery(document).ready(function ($) {
         if (target === '#reports') {
             loadAgents();
         }
+
+        // Load teams when switching to agent responses tab
+        if (target === '#agent-responses') {
+            loadTeams();
+        }
     });
 
     // Save credentials
@@ -124,6 +129,16 @@ jQuery(document).ready(function ($) {
     // Get agent responses
     $('#get_agent_responses').on('click', function () {
         const dateRange = $('#agent_responses_date_range').val();
+        let selectedAgents = $('#agent_filter').val() || [];
+        let selectedTeams = $('#team_filter').val() || [];
+
+        // Handle "All" selections - if empty string is selected, treat as "select all"
+        if (selectedAgents.includes('')) {
+            selectedAgents = [];
+        }
+        if (selectedTeams.includes('')) {
+            selectedTeams = [];
+        }
 
         if (!dateRange) {
             showNotice('Please select a date range', 'error');
@@ -131,6 +146,7 @@ jQuery(document).ready(function ($) {
         }
 
         $('#agent_responses_loading').show();
+        $('#agent_responses_summary_container').empty();
         $('#agent_responses_table_container').empty();
         $('#agent_responses_chart_container').empty();
         $('#agent_responses_details_container').empty();
@@ -138,7 +154,9 @@ jQuery(document).ready(function ($) {
         const requestData = {
             action: 'fsre_get_agent_responses',
             nonce: fsre_ajax.nonce,
-            date_range: dateRange
+            date_range: dateRange,
+            selected_agents: selectedAgents,
+            selected_teams: selectedTeams
         };
 
         $.post(fsre_ajax.ajax_url, requestData, function (response) {
@@ -155,7 +173,7 @@ jQuery(document).ready(function ($) {
         });
     });
 
-    // Load agents
+    // Load agents and teams
     function loadAgents() {
         $.post(fsre_ajax.ajax_url, {
             action: 'fsre_get_agents',
@@ -168,6 +186,34 @@ jQuery(document).ready(function ($) {
                 response.data.forEach(function (agent) {
                     select.append('<option value="' + agent.id + '">' + agent.name + '</option>');
                 });
+            }
+        });
+    }
+
+    // Load teams and populate dropdowns
+    function loadTeams() {
+        $.post(fsre_ajax.ajax_url, {
+            action: 'fsre_get_teams',
+            nonce: fsre_ajax.nonce
+        }, function (response) {
+            if (response.success) {
+                const teamsData = response.data;
+
+                // Populate agent filter dropdown
+                const agentFilter = $('#agent_filter');
+                agentFilter.empty();
+                agentFilter.append('<option value="">All Agents</option>');
+
+                teamsData.all_agents.forEach(function (agent) {
+                    agentFilter.append('<option value="' + agent.id + '">' + agent.full_name + '</option>');
+                });
+
+                // Populate team filter dropdown
+                const teamFilter = $('#team_filter');
+                teamFilter.empty();
+                teamFilter.append('<option value="">All Teams</option>');
+                teamFilter.append('<option value="a">Team A</option>');
+                teamFilter.append('<option value="b">Team B</option>');
             }
         });
     }
@@ -228,26 +274,104 @@ jQuery(document).ready(function ($) {
     function displayAgentResponses(data) {
         const { agents, time_series } = data;
 
+        // Filter out agents with no responses
+        const activeAgents = agents.filter(agent => agent.total_responses > 0);
+
+        if (activeAgents.length === 0) {
+            $('#agent_responses_summary_container').html('<p>No agent responses found for the selected criteria.</p>');
+            return;
+        }
+
+        // Display summary table
+        displayAgentSummary(activeAgents);
+
         // Display agent table
-        displayAgentTable(agents);
+        displayAgentTable(activeAgents);
 
         // Display chart
-        displayAgentChart(agents, time_series);
+        displayAgentChart(activeAgents, time_series);
+    }
+
+    // Display agent summary table
+    function displayAgentSummary(agents) {
+        const container = $('#agent_responses_summary_container');
+
+        let summaryHtml = `
+            <div class="agent-summary-section">
+                <h3>Agent Response Summary</h3>
+                <table class="wp-list-table widefat fixed striped">
+                    <thead>
+                        <tr>
+                            <th>Agent Name</th>
+                            <th>Total Responses</th>
+                            <th>Interactions (Tickets)</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Time Difference</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        let totalResponses = 0;
+        let totalInteractions = 0;
+
+        agents.forEach(function (agent) {
+            const startTime = agent.first_response ? new Date(agent.first_response) : null;
+            const endTime = agent.last_response ? new Date(agent.last_response) : null;
+
+            let timeDifference = '';
+            if (startTime && endTime) {
+                const diffMs = endTime - startTime;
+                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                timeDifference = `${diffHours}h ${diffMinutes}m`;
+            }
+
+            const startTimeFormatted = startTime ? startTime.toLocaleString() : 'N/A';
+            const endTimeFormatted = endTime ? endTime.toLocaleString() : 'N/A';
+
+            summaryHtml += `
+                <tr>
+                    <td><strong>${agent.full_name}</strong></td>
+                    <td>${agent.total_responses}</td>
+                    <td>${agent.total_tickets}</td>
+                    <td>${startTimeFormatted}</td>
+                    <td>${endTimeFormatted}</td>
+                    <td>${timeDifference}</td>
+                </tr>
+            `;
+
+            totalResponses += agent.total_responses;
+            totalInteractions += agent.total_tickets;
+        });
+
+        // Add totals row
+        summaryHtml += `
+                    <tr class="summary-totals">
+                        <td><strong>TOTALS</strong></td>
+                        <td><strong>${totalResponses}</strong></td>
+                        <td><strong>${totalInteractions}</strong></td>
+                        <td colspan="3"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        `;
+
+        container.html(summaryHtml);
     }
 
     // Display agent cards
     function displayAgentTable(agents) {
         const container = $('#agent_responses_table_container');
 
-        // Filter out agents with 0 responses
-        const activeAgents = agents.filter(agent => agent.total_responses > 0);
-
         let cardsHtml = `
             <h3>Agent Response Statistics</h3>
             <div class="agent-cards-grid">
         `;
 
-        activeAgents.forEach(function (agent) {
+        agents.forEach(function (agent) {
             const firstResponse = agent.first_response ? new Date(agent.first_response).toLocaleString() : 'N/A';
             const lastResponse = agent.last_response ? new Date(agent.last_response).toLocaleString() : 'N/A';
 
@@ -317,9 +441,6 @@ jQuery(document).ready(function ($) {
     function displayAgentChart(agents, timeSeries) {
         const container = $('#agent_responses_chart_container');
 
-        // Filter out agents with 0 responses
-        const activeAgents = agents.filter(agent => agent.total_responses > 0);
-
         // Create chart container with agent selection
         container.html(`
             <h3>Response Time Series (24-Hour View)</h3>
@@ -330,7 +451,7 @@ jQuery(document).ready(function ($) {
                         <label class="agent-checkbox">
                             <input type="checkbox" id="select-all-agents" checked> Select All
                         </label>
-                        ${activeAgents.map(agent => `
+                        ${agents.map(agent => `
                             <label class="agent-checkbox">
                                 <input type="checkbox" class="agent-toggle" data-agent-id="${agent.id}" checked> ${agent.full_name}
                             </label>
@@ -346,7 +467,7 @@ jQuery(document).ready(function ($) {
         const datasets = [];
 
         // Create a dataset for each active agent
-        activeAgents.forEach(function (agent, index) {
+        agents.forEach(function (agent, index) {
             const data = hours.map(hour => timeSeries[hour][agent.id] || 0);
 
             // Generate a color for each agent
@@ -433,7 +554,7 @@ jQuery(document).ready(function ($) {
                     if (elements.length > 0) {
                         const element = elements[0];
                         const hour = hours[element.index];
-                        showDateDetails(hour, timeSeries, activeAgents);
+                        showDateDetails(hour, timeSeries, agents);
 
                         // Scroll to details section
                         $('#agent_responses_details_container')[0].scrollIntoView({
@@ -483,14 +604,24 @@ jQuery(document).ready(function ($) {
         const container = $('#agent_responses_details_container');
         const hourData = timeSeries[hour] || {};
 
+        // Debug logging
+        console.log('Hour clicked:', hour);
+        console.log('Hour data:', hourData);
+        console.log('Agents:', agents);
+
         // Format the hour for display
         const date = new Date(hour);
         const formattedHour = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         let detailsHtml = `
-            <h3>Responses for ${formattedHour}</h3>
+            <div class="details-header">
+                <h3>Responses for ${formattedHour}</h3>
+                <button class="button-secondary" onclick="$('#agent_responses_details_container').empty(); $('#agent_responses_table_container').css('display', 'block');">Back to Overview</button>
+            </div>
             <div class="agent-cards-grid">
         `;
+
+        let hasResponses = false;
 
         agents.forEach(function (agent) {
             const responses = hourData[agent.id] || 0;
@@ -498,10 +629,23 @@ jQuery(document).ready(function ($) {
                 // Get responses for this specific hour
                 const hourResponses = agent.response_details ? agent.response_details.filter(response => {
                     const responseHour = new Date(response.created_at);
-                    return responseHour.toISOString().substring(0, 13) + ':00:00.000Z' === hour;
+                    const responseHourString = responseHour.getFullYear() + '-' +
+                        String(responseHour.getMonth() + 1).padStart(2, '0') + '-' +
+                        String(responseHour.getDate()).padStart(2, '0') + ' ' +
+                        String(responseHour.getHours()).padStart(2, '0') + ':00';
+
+                    // Debug logging for first few responses
+                    if (agent.response_details.indexOf(response) < 3) {
+                        console.log('Response hour string:', responseHourString);
+                        console.log('Target hour:', hour);
+                        console.log('Match:', responseHourString === hour);
+                    }
+
+                    return responseHourString === hour;
                 }) : [];
 
                 if (hourResponses.length > 0) {
+                    hasResponses = true;
                     const firstResponse = hourResponses[0].formatted_time;
                     const lastResponse = hourResponses[hourResponses.length - 1].formatted_time;
 
@@ -561,6 +705,14 @@ jQuery(document).ready(function ($) {
                 }
             }
         });
+
+        if (!hasResponses) {
+            detailsHtml += `
+                <div class="no-responses-message">
+                    <p>No detailed responses found for this time period. The chart shows aggregated data, but individual response details may not be available for this specific hour.</p>
+                </div>
+            `;
+        }
 
         detailsHtml += `
             </div>

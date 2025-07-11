@@ -26,6 +26,8 @@
             add_action('wp_ajax_fsre_get_agents', array($this, 'get_agents'));
             add_action('wp_ajax_fsre_test_api', array($this, 'test_api'));
             add_action('wp_ajax_fsre_get_agent_responses', array($this, 'get_agent_responses'));
+            add_action('wp_ajax_fsre_get_teams', array($this, 'get_teams'));
+            add_action('wp_ajax_fsre_save_teams', array($this, 'save_teams'));
         }
 
         public function add_admin_menu() {
@@ -126,6 +128,16 @@
                         <label for="agent_responses_date_range">Date Range:</label>
                         <input type="text" id="agent_responses_date_range" placeholder="Select date range" />
 
+                        <label for="agent_filter">Filter by Agent:</label>
+                        <select id="agent_filter" multiple>
+                            <option value="">Loading agents...</option>
+                        </select>
+
+                        <label for="team_filter">Filter by Team:</label>
+                        <select id="team_filter" multiple>
+                            <option value="">Loading teams...</option>
+                        </select>
+
                         <button id="get_agent_responses" class="button-primary">Get Agent Responses</button>
                     </div>
 
@@ -134,6 +146,7 @@
                     </div>
 
                     <div id="agent_responses_container">
+                        <div id="agent_responses_summary_container"></div>
                         <div id="agent_responses_table_container"></div>
                         <div id="agent_responses_chart_container">
                             <canvas id="agent_responses_chart"></canvas>
@@ -316,7 +329,9 @@
                         wp_send_json_error('Please configure API credentials first.');
                     }
 
-                    $date_range = sanitize_text_field($_POST['date_range']);
+                    $date_range      = sanitize_text_field($_POST['date_range']);
+                    $selected_agents = isset($_POST['selected_agents']) ? array_map('intval', $_POST['selected_agents']) : array();
+                    $selected_teams  = isset($_POST['selected_teams']) ? array_map('sanitize_text_field', $_POST['selected_teams']) : array();
 
                     // Parse date range
                     $dates      = explode(' to ', $date_range);
@@ -362,35 +377,65 @@
                     }
 
                     // Process the data to create agent response statistics
-                    $agent_stats = $this->process_agent_response_data($data);
+                    $agent_stats = $this->process_agent_response_data($data, $selected_agents, $selected_teams);
 
                     wp_send_json_success($agent_stats);
                 }
 
-                private function process_agent_response_data($data) {
-                    // Define the agents from the provided data
-                    $agents = array(
-                        array('id' => 37636, 'full_name' => 'Rakid'),
-                        array('id' => 37635, 'full_name' => 'Chinmoy'),
-                        array('id' => 37576, 'full_name' => 'Ariful Islam'),
-                        array('id' => 36338, 'full_name' => 'Ashim'),
-                        array('id' => 35896, 'full_name' => 'Farjana'),
-                        array('id' => 35895, 'full_name' => 'Akil Gazi'),
-                        array('id' => 35599, 'full_name' => 'Sujoy Chandra Das'),
-                        array('id' => 28207, 'full_name' => 'Ashik'),
-                        array('id' => 27510, 'full_name' => 'Ruman Ahmed'),
-                        array('id' => 18116, 'full_name' => 'Ibrahim Sharif'),
-                        array('id' => 18115, 'full_name' => 'Mahfuzur Rahman'),
-                        array('id' => 18112, 'full_name' => 'Reza Shartaz Jaman'),
-                        array('id' => 18110, 'full_name' => 'Rahul Deb Das'),
-                        array('id' => 11968, 'full_name' => 'Ahsan Chowdhury'),
-                        array('id' => 11886, 'full_name' => 'Amimul Ihsan Mahdi'),
-                        array('id' => 8524, 'full_name' => 'Abul Khoyer'),
-                        array('id' => 6352, 'full_name' => 'Nayan Das'),
-                        array('id' => 3130, 'full_name' => 'Syed Numan'),
-                        array('id' => 587, 'full_name' => 'Md Kamrul Islam'),
-                        array('id' => 40735, 'full_name' => 'Anik')
-                    );
+                private function process_agent_response_data($data, $selected_agents = array(), $selected_teams = array()) {
+                    // Load teams configuration
+                    $teams_file = FSRE_PLUGIN_DIR . 'teams.json';
+                    $teams_data = array();
+
+                    if (file_exists($teams_file)) {
+                        $teams_data = json_decode(file_get_contents($teams_file), true);
+                    }
+
+                    // Get all agents from teams configuration
+                    $all_agents = isset($teams_data['all_agents']) ? $teams_data['all_agents'] : array();
+
+                    // If no agents defined in teams.json, use the default list
+                    if (empty($all_agents)) {
+                        $all_agents = array(
+                            array('id' => 37636, 'full_name' => 'Rakid'),
+                            array('id' => 37635, 'full_name' => 'Chinmoy'),
+                            array('id' => 37576, 'full_name' => 'Ariful Islam'),
+                            array('id' => 36338, 'full_name' => 'Ashim'),
+                            array('id' => 35896, 'full_name' => 'Farjana'),
+                            array('id' => 35895, 'full_name' => 'Akil Gazi'),
+                            array('id' => 35599, 'full_name' => 'Sujoy Chandra Das'),
+                            array('id' => 28207, 'full_name' => 'Ashik'),
+                            array('id' => 27510, 'full_name' => 'Ruman Ahmed'),
+                            array('id' => 18116, 'full_name' => 'Ibrahim Sharif'),
+                            array('id' => 18115, 'full_name' => 'Mahfuzur Rahman'),
+                            array('id' => 18112, 'full_name' => 'Reza Shartaz Jaman'),
+                            array('id' => 18110, 'full_name' => 'Rahul Deb Das'),
+                            array('id' => 11968, 'full_name' => 'Ahsan Chowdhury'),
+                            array('id' => 11886, 'full_name' => 'Amimul Ihsan Mahdi'),
+                            array('id' => 8524, 'full_name' => 'Abul Khoyer'),
+                            array('id' => 6352, 'full_name' => 'Nayan Das'),
+                            array('id' => 3130, 'full_name' => 'Syed Numan'),
+                            array('id' => 587, 'full_name' => 'Md Kamrul Islam'),
+                            array('id' => 40735, 'full_name' => 'Anik')
+                        );
+                    }
+
+                    // Filter agents based on selected teams
+                    $filtered_agents = $all_agents;
+                    if (!empty($selected_teams)) {
+                        $filtered_agents = array_filter($all_agents, function ($agent) use ($selected_teams) {
+                            return in_array($agent['team'], $selected_teams);
+                        });
+                    }
+
+                    // Filter agents based on selected agents
+                    if (!empty($selected_agents)) {
+                        $filtered_agents = array_filter($filtered_agents, function ($agent) use ($selected_agents) {
+                            return in_array($agent['id'], $selected_agents);
+                        });
+                    }
+
+                    $agents = array_values($filtered_agents);
 
                     $agent_stats      = array();
                     $time_series_data = array();
@@ -473,6 +518,46 @@
                         'agents'      => array_values($agent_stats),
                         'time_series' => $time_series_data
                     );
+                }
+
+                public function get_teams() {
+                    check_ajax_referer('fsre_nonce', 'nonce');
+
+                    if (!current_user_can('manage_options')) {
+                        wp_die('Unauthorized');
+                    }
+
+                    $teams_file = FSRE_PLUGIN_DIR . 'teams.json';
+
+                    if (file_exists($teams_file)) {
+                        $teams_data = json_decode(file_get_contents($teams_file), true);
+                        wp_send_json_success($teams_data);
+                    } else {
+                        wp_send_json_error('Teams configuration file not found.');
+                    }
+                }
+
+                public function save_teams() {
+                    check_ajax_referer('fsre_nonce', 'nonce');
+
+                    if (!current_user_can('manage_options')) {
+                        wp_die('Unauthorized');
+                    }
+
+                    $teams_data = json_decode(stripslashes($_POST['teams_data']), true);
+
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        wp_send_json_error('Invalid JSON data provided.');
+                    }
+
+                    $teams_file = FSRE_PLUGIN_DIR . 'teams.json';
+                    $result     = file_put_contents($teams_file, json_encode($teams_data, JSON_PRETTY_PRINT));
+
+                    if ($result !== false) {
+                        wp_send_json_success('Teams configuration saved successfully.');
+                    } else {
+                        wp_send_json_error('Failed to save teams configuration.');
+                    }
                 }
             }
 

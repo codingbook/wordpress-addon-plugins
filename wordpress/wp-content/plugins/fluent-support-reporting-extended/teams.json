@@ -1,0 +1,104 @@
+{
+    "all_agents": [
+        {
+            "id": 37636,
+            "full_name": "Rakid",
+            "team": "a"
+        },
+        {
+            "id": 37635,
+            "full_name": "Chinmoy",
+            "team": "a"
+        },
+        {
+            "id": 37576,
+            "full_name": "Ariful Islam",
+            "team": "a"
+        },
+        {
+            "id": 36338,
+            "full_name": "Ashim",
+            "team": "a"
+        },
+        {
+            "id": 35896,
+            "full_name": "Farjana",
+            "team": "a"
+        },
+        {
+            "id": 35895,
+            "full_name": "Akil Gazi",
+            "team": "a"
+        },
+        {
+            "id": 35599,
+            "full_name": "Sujoy Chandra Das",
+            "team": "a"
+        },
+        {
+            "id": 28207,
+            "full_name": "Ashik",
+            "team": "b"
+        },
+        {
+            "id": 27510,
+            "full_name": "Ruman Ahmed",
+            "team": "b"
+        },
+        {
+            "id": 18116,
+            "full_name": "Ibrahim Sharif",
+            "team": "b"
+        },
+        {
+            "id": 18115,
+            "full_name": "Mahfuzur Rahman",
+            "team": "b"
+        },
+        {
+            "id": 18112,
+            "full_name": "Reza Shartaz Jaman",
+            "team": "b"
+        },
+        {
+            "id": 18110,
+            "full_name": "Rahul Deb Das",
+            "team": "b"
+        },
+        {
+            "id": 11968,
+            "full_name": "Ahsan Chowdhury",
+            "team": "b"
+        },
+        {
+            "id": 11886,
+            "full_name": "Amimul Ihsan Mahdi",
+            "team": "b"
+        },
+        {
+            "id": 8524,
+            "full_name": "Abul Khoyer",
+            "team": "b"
+        },
+        {
+            "id": 6352,
+            "full_name": "Nayan Das",
+            "team": "b"
+        },
+        {
+            "id": 3130,
+            "full_name": "Syed Numan",
+            "team": "b"
+        },
+        {
+            "id": 587,
+            "full_name": "Md Kamrul Islam",
+            "team": "b"
+        },
+        {
+            "id": 40735,
+            "full_name": "Anik",
+            "team": "b"
+        }
+    ]
+}
