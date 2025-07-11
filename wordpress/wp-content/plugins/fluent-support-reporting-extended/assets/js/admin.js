@@ -464,9 +464,15 @@ jQuery(document).ready(function ($) {
     function displayAgentChart(agents, timeSeries) {
         const container = $('#agent_responses_chart_container');
 
-        // Create chart container without separate controls
+        // Create chart container with show/hide all controls
         container.html(`
-            <h3>Response Time Series (24-Hour View) - Click on legends to show/hide agents</h3>
+            <div class="chart-controls">
+                <h3>Response Time Series (24-Hour View) - Click on legends to show/hide agents</h3>
+                <div class="chart-buttons">
+                    <button class="button-secondary" id="show-all-agents">Show All Agents</button>
+                    <button class="button-secondary" id="hide-all-agents">Hide All Agents</button>
+                </div>
+            </div>
             <canvas id="agent_responses_chart"></canvas>
         `);
 
@@ -505,10 +511,10 @@ jQuery(document).ready(function ($) {
             });
         });
 
-        // Format hour labels for better display
+        // Format hour labels for better display (using UTC)
         const formattedLabels = hours.map(hour => {
-            const date = new Date(hour);
-            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const date = new Date(hour + 'Z'); // Add Z to treat as UTC
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' UTC';
         });
 
         // Create chart
@@ -567,13 +573,22 @@ jQuery(document).ready(function ($) {
                     if (elements.length > 0) {
                         const element = elements[0];
                         const hour = hours[element.index];
+                        const datasetIndex = element.datasetIndex;
 
                         console.log('Chart clicked - element:', element);
                         console.log('Hour index:', element.index);
                         console.log('Hour value:', hour);
+                        console.log('Dataset index:', datasetIndex);
                         console.log('Time series keys:', Object.keys(timeSeries));
 
-                        showDateDetails(hour, timeSeries, agents);
+                        // Get the specific agent for this dataset
+                        const clickedAgent = agents.find(agent => agent.id == datasets[datasetIndex].agentId);
+                        console.log('Clicked agent:', clickedAgent ? clickedAgent.full_name : 'Unknown');
+
+                        // Only show the specific agent that was clicked, not all agents with data at this point
+                        const agentsToShow = clickedAgent ? [clickedAgent] : [];
+
+                        showDateDetails(hour, timeSeries, agents, agentsToShow);
 
                         // Scroll to details section
                         $('#agent_responses_details_container')[0].scrollIntoView({
@@ -582,6 +597,21 @@ jQuery(document).ready(function ($) {
                     }
                 }
             }
+        });
+
+        // Add event handlers for show/hide all buttons
+        $('#show-all-agents').on('click', function () {
+            chart.data.datasets.forEach((dataset, index) => {
+                chart.setDatasetVisibility(index, true);
+            });
+            chart.update();
+        });
+
+        $('#hide-all-agents').on('click', function () {
+            chart.data.datasets.forEach((dataset, index) => {
+                chart.setDatasetVisibility(index, false);
+            });
+            chart.update();
         });
 
         // Chart legend click handling is built into Chart.js
@@ -597,7 +627,7 @@ jQuery(document).ready(function ($) {
     }
 
     // Show hour details when chart point is clicked
-    function showDateDetails(hour, timeSeries, agents) {
+    function showDateDetails(hour, timeSeries, agents, agentsWithData = null) {
         const container = $('#agent_responses_details_container');
         const hourData = timeSeries[hour] || {};
 
@@ -605,19 +635,24 @@ jQuery(document).ready(function ($) {
         console.log('Hour clicked:', hour);
         console.log('Hour data:', hourData);
         console.log('All agents:', agents);
+        console.log('Agents with data at this point:', agentsWithData);
 
-        // Get currently visible agents from the chart
-        const chart = Chart.getChart('agent_responses_chart');
-        const visibleAgents = agents.filter(agent => {
-            const datasetIndex = chart.data.datasets.findIndex(dataset => dataset.agentId == agent.id);
-            return datasetIndex !== -1 && chart.isDatasetVisible(datasetIndex);
-        });
+        // Use agentsWithData if provided, otherwise fall back to visible agents
+        let agentsToShow = agentsWithData;
+        if (!agentsToShow || agentsToShow.length === 0) {
+            // Get currently visible agents from the chart
+            const chart = Chart.getChart('agent_responses_chart');
+            agentsToShow = agents.filter(agent => {
+                const datasetIndex = chart.data.datasets.findIndex(dataset => dataset.agentId == agent.id);
+                return datasetIndex !== -1 && chart.isDatasetVisible(datasetIndex);
+            });
+        }
 
-        console.log('Visible agents:', visibleAgents);
+        console.log('Agents to show:', agentsToShow);
 
-        // Format the hour for display
-        const date = new Date(hour);
-        const formattedHour = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        // Format the hour for display (using UTC)
+        const date = new Date(hour + 'Z'); // Add Z to treat as UTC
+        const formattedHour = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' UTC';
 
         let detailsHtml = `
             <div class="details-header">
@@ -629,7 +664,7 @@ jQuery(document).ready(function ($) {
 
         let hasResponses = false;
 
-        visibleAgents.forEach(function (agent) {
+        agentsToShow.forEach(function (agent) {
             const responses = hourData[agent.id] || 0;
             if (responses > 0) {
                 // Get responses for this specific hour
@@ -638,10 +673,11 @@ jQuery(document).ready(function ($) {
 
                 const hourResponses = agent.response_details ? agent.response_details.filter(response => {
                     const responseHour = new Date(response.created_at);
-                    const responseHourString = responseHour.getFullYear() + '-' +
-                        String(responseHour.getMonth() + 1).padStart(2, '0') + '-' +
-                        String(responseHour.getDate()).padStart(2, '0') + ' ' +
-                        String(responseHour.getHours()).padStart(2, '0') + ':00';
+                    // Use UTC methods to match PHP's gmdate output
+                    const responseHourString = responseHour.getUTCFullYear() + '-' +
+                        String(responseHour.getUTCMonth() + 1).padStart(2, '0') + '-' +
+                        String(responseHour.getUTCDate()).padStart(2, '0') + ' ' +
+                        String(responseHour.getUTCHours()).padStart(2, '0') + ':00';
 
                     // Debug logging for first few responses
                     if (agent.response_details.indexOf(response) < 3) {

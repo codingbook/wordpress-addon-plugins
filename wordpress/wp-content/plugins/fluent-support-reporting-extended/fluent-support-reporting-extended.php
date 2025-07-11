@@ -480,8 +480,8 @@
                                     $agent_stats[$agent_id]['last_response'] = $created_at;
                                 }
 
-                                // Track responses by hour for time series
-                                $response_hour = date('Y-m-d H:00', strtotime($created_at));
+                                // Track responses by hour for time series (using UTC)
+                                $response_hour = gmdate('Y-m-d H:00', strtotime($created_at));
                                 if (!isset($agent_stats[$agent_id]['responses_by_hour'][$response_hour])) {
                                     $agent_stats[$agent_id]['responses_by_hour'][$response_hour] = 0;
                                 }

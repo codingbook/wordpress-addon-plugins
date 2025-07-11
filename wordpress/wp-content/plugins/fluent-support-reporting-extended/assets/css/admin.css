@@ -247,6 +247,14 @@
     margin-bottom: 20px;
 }
 
+.chart-buttons {
+    margin-top: 10px;
+}
+
+.chart-buttons .button-secondary {
+    margin-right: 10px;
+}
+
 .agent-selector label {
     font-weight: bold;
     margin-bottom: 10px;
